@@ -1,0 +1,63 @@
+version: '3'
+
+volumes:
+  celery_playground_postgres_data: {}
+  celery_playground_rabbitmq_data: {}
+
+services:
+  postgres:
+    hostname: postgres
+    image: postgres:10.5
+    volumes:
+      - celery_playground_postgres_data:/var/lib/postgresql/data
+    env_file:
+      - ./.envs/.postgres
+    ports:
+      - "5432:5432"
+
+  rabbitmq:
+    hostname: rabbitmq
+    image: rabbitmq:3.6-management
+    env_file:
+      - ./.envs/.rabbitmq
+    volumes:
+      - celery_playground_rabbitmq_data:/var/lib/rabbitmq
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+
+  celeryworker: &celeryworker
+    build:
+      context: .
+      dockerfile: Dockerfile
+    hostname: celeryworker
+    depends_on:
+      - rabbitmq
+      - postgres
+    env_file:
+      - ./.envs/.postgres  
+    ports: []
+    command: -m 'celery' worker -A 'app.tasks:celery_app'
+
+  celerybeat:
+    <<: *celeryworker
+    hostname: celerybeat
+    depends_on:
+      - rabbitmq
+      - postgres
+    env_file:
+      - ./.envs/.postgres  
+    ports: []
+    command: -m 'celery' beat -A 'app.tasks:celery_app'
+
+  flower:
+    hostname: celeryflower
+    <<: *celeryworker
+    depends_on:
+      - rabbitmq
+      - postgres
+    env_file:
+      - ./.envs/.postgres  
+    ports:
+      - "5555:5555"
+    command: -m 'celery' flower -A 'app.tasks:celery_app'
