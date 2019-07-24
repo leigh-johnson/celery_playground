@@ -14,3 +14,7 @@ def add(x, y):
 @celery_app.task()
 def multiply(x, y):
     return x * y
+
+@celery_app.task()
+def negate(x):
+    return -x
